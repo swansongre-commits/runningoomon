@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>러너 게임</title>
+<title>런닝구몬 · runningoomon</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   html, body {
@@ -853,9 +853,11 @@
   function drawMenu() {
     ctx.textAlign = "center"; ctx.textBaseline = "alphabetic";
     ctx.fillStyle = "#535353"; ctx.font = "bold 32px 'Malgun Gothic', sans-serif";
-    ctx.fillText("🏃 러너 게임", W / 2, 66);
+    ctx.fillText("🏃 런닝구몬", W / 2, 58);
+    ctx.font = "bold 13px 'Consolas', monospace"; ctx.fillStyle = "#b0b0b0";
+    ctx.fillText("runningoomon", W / 2, 78);
     ctx.font = "15px 'Malgun Gothic', sans-serif"; ctx.fillStyle = "#888";
-    ctx.fillText("캐릭터를 선택하세요", W / 2, 96);
+    ctx.fillText("캐릭터를 선택하세요", W / 2, 100);
     const n = CHARACTERS.length, cw = 130, gap = 20, ch = 110, cardY = 130;
     const startX = (W - (n * cw + (n - 1) * gap)) / 2;
     for (let i = 0; i < n; i++) {

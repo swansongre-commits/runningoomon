@@ -3,7 +3,7 @@ import pathlib
 import streamlit as st
 import streamlit.components.v1 as components
 
-st.set_page_config(page_title="러너 게임", page_icon="🏃", layout="centered")
+st.set_page_config(page_title="런닝구몬 · runningoomon", page_icon="🏃", layout="centered")
 
 # 모바일 친화적으로 상단 여백 축소
 st.markdown(
@@ -11,7 +11,7 @@ st.markdown(
     <style>
       .block-container { padding-top: 3.5rem; padding-bottom: 0.5rem; max-width: 860px; }
     </style>
-    <h1 style='text-align:center; margin-bottom:0; font-size:1.6rem;'>🏃 러너 게임</h1>
+    <h1 style='text-align:center; margin-bottom:0; font-size:1.6rem;'>🏃 런닝구몬 <span style="font-size:1rem;color:#aaa;">runningoomon</span></h1>
     <p style='text-align:center; color:#888; margin-top:4px; font-size:0.9rem;'>
         구글 공룡게임 스타일 · 🐱 고양이 / 🐰 토끼 / 🐢 거북이 / 👽 외계인 중 선택!
     </p>
