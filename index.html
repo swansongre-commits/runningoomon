@@ -264,10 +264,10 @@
 
   // ---------- 캐릭터 ----------
   const CHARACTERS = [
-    { id: "cat",    name: "고양이",  emoji: "🐱", color: "#e8943a" },
-    { id: "rabbit", name: "토끼",    emoji: "🐰", color: "#c9c9d4" },
-    { id: "turtle", name: "거북이",  emoji: "🐢", color: "#5aa056" },
-    { id: "alien",  name: "외계인",  emoji: "👽", color: "#7fd66b" },
+    { id: "cat",    name: "고양이",  emoji: "🐱", color: "#e8943a", legs: 4 },
+    { id: "rabbit", name: "토끼",    emoji: "🐰", color: "#c9c9d4", legs: 4 },
+    { id: "turtle", name: "거북이",  emoji: "🐢", color: "#5aa056", legs: 4 },
+    { id: "alien",  name: "외계인",  emoji: "👽", color: "#7fd66b", legs: 2 },
   ];
 
   // ---------- 상태 ----------
@@ -776,30 +776,42 @@
       return;
     }
 
-    const legLen = 13, bodyH = 17, bodyW = 22;
+    const legCount = ch.legs || 2;
+    const legLen = 13, bodyH = 17, bodyW = 24;
     const hipY = foot - legLen, bodyTop = hipY - bodyH;
     const running = player.onGround;
     const t = frame * 0.45;
-    const sw = running ? Math.sin(t) * 7 : 5;          // 다리 앞뒤 스윙
     const bob = running ? Math.abs(Math.sin(t)) * 1.5 : 0; // 살짝 위아래
 
-    // 다리 (달리기 애니메이션)
+    // 다리 (캐릭터별 개수: 동물 4개 / 외계인 2개)
     ctx.strokeStyle = dark; ctx.lineWidth = 5; ctx.lineCap = "round";
+    function drawLeg(x, dx) { ctx.beginPath(); ctx.moveTo(x, hipY - bob); ctx.lineTo(x + dx, foot); ctx.stroke(); }
     if (running) {
-      ctx.beginPath(); ctx.moveTo(cx - 3, hipY - bob); ctx.lineTo(cx - 3 + sw, foot); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(cx + 3, hipY - bob); ctx.lineTo(cx + 3 - sw, foot); ctx.stroke();
+      if (legCount >= 4) {
+        const xs = [-10, -5, 5, 10], ph = [0, Math.PI, Math.PI, 0]; // 대각선 한 쌍씩 (갤럽)
+        for (let i = 0; i < 4; i++) drawLeg(cx + xs[i], Math.sin(t + ph[i]) * 6);
+      } else {
+        drawLeg(cx - 3, Math.sin(t) * 7);
+        drawLeg(cx + 3, Math.sin(t + Math.PI) * 7);
+      }
     } else {
       // 점프: 다리 모음
-      ctx.beginPath(); ctx.moveTo(cx - 3, hipY); ctx.lineTo(cx - 8, foot - 2); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(cx + 3, hipY); ctx.lineTo(cx + 8, foot - 2); ctx.stroke();
+      if (legCount >= 4) {
+        const xs = [-10, -5, 5, 10];
+        for (let i = 0; i < 4; i++) drawLeg(cx + xs[i], (i < 2 ? -3 : 3));
+      } else {
+        drawLeg(cx - 3, -6); drawLeg(cx + 3, 6);
+      }
     }
     // 몸통
     ctx.fillStyle = color; roundRect(cx - bodyW / 2, bodyTop - bob, bodyW, bodyH, 8); ctx.fill();
     ctx.strokeStyle = dark; ctx.lineWidth = 2; ctx.stroke();
-    // 팔 (반대 위상으로 흔들)
+    // 팔 2개 (길게, 좌우로 흔들)
     ctx.strokeStyle = dark; ctx.lineWidth = 4; ctx.lineCap = "round";
-    const aw = running ? Math.sin(t + Math.PI) * 6 : 3;
-    ctx.beginPath(); ctx.moveTo(cx + 2, bodyTop - bob + 6); ctx.lineTo(cx + 9 + aw, bodyTop - bob + 13); ctx.stroke();
+    const armY = bodyTop - bob + 6, armLen = 16;
+    const aw = running ? Math.sin(t + Math.PI) * 7 : 3;
+    ctx.beginPath(); ctx.moveTo(cx + 2, armY); ctx.lineTo(cx + 2 + armLen + aw, armY + 11); ctx.stroke();   // 앞팔(길게)
+    ctx.beginPath(); ctx.moveTo(cx - 2, armY); ctx.lineTo(cx - 2 - armLen + aw, armY + 11); ctx.stroke();   // 뒷팔(길게)
     // 머리(이모지)
     drawHead(ch.emoji, cx, bodyTop - bob + 5, 24);
   }
@@ -919,6 +931,21 @@
     }
     requestAnimationFrame(loop);
   }
+
+  // ---------- 고해상도 렌더링 (선명도 개선) ----------
+  // 로직 좌표는 800x320 그대로 두고, 백킹 버퍼만 디스플레이 크기×픽셀비율로 키운다.
+  const MAX_BACKING_W = 2400;
+  function fitCanvas() {
+    const cssW = canvas.clientWidth || W;
+    let bw = Math.min(cssW * (window.devicePixelRatio || 1), MAX_BACKING_W);
+    bw = Math.max(bw, W);
+    canvas.width = Math.round(bw);
+    canvas.height = Math.round(bw * H / W);
+    ctx.setTransform(canvas.width / W, 0, 0, canvas.height / H, 0, 0); // 로직 좌표(0..800,0..320) → 백킹
+    ctx.imageSmoothingEnabled = true;
+  }
+  window.addEventListener("resize", fitCanvas);
+  fitCanvas();
   loop();
 })();
 </script>
