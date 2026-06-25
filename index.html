@@ -518,7 +518,7 @@
   const goRankList = document.getElementById("goRankList");
   const goMsg = document.getElementById("goMsg");
   let goVisible = false, goView = "choice", submitting = false;
-  let leaderboard = [];
+  let leaderboard = [], cachedBoard = null, boardPromise = null;
 
   function escapeHtml(s) {
     return String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -556,10 +556,20 @@
   }
   function loadingRows() { goRankList.innerHTML = '<li style="justify-content:center;color:#aaa;">불러오는 중…</li>'; goMsg.textContent = ""; }
 
+  function prefetchBoard() {            // 게임오버 즉시 TOP10 백그라운드 선조회
+    boardPromise = sbTop10().then((b) => { cachedBoard = b; return b; }).catch(() => null);
+    return boardPromise;
+  }
+  async function ensureBoard() {        // 캐시 우선, 없으면 선조회 대기, 그래도 없으면 로컬
+    if (cachedBoard) return cachedBoard;
+    try { await (boardPromise || prefetchBoard()); } catch (e) {}
+    return cachedBoard || loadLocal();
+  }
   function showGameOver() {
     goStageEl.textContent = stage;
     goScoreEl.textContent = String(Math.floor(score)).padStart(5, "0");
     goNameInput.value = "";
+    cachedBoard = null; prefetchBoard();   // 미리 불러오기 시작
     showView("choice");           // 먼저 다시하기/끝내기 선택
     goBox.classList.add("show");
     goVisible = true;
@@ -573,27 +583,25 @@
     submitting = true;
     const name = (goNameInput.value || "").trim().slice(0, 12) || "익명";
     const entry = { name, score: Math.floor(score), stage };
-    showView("rank"); loadingRows();
-    let online = true;
-    try {
-      await sbInsert(entry);
-      leaderboard = await sbTop10();
-    } catch (e) {
-      online = false; // 오프라인 폴백 → 이 기기에만 저장
-      const local = loadLocal(); local.push(entry); local.sort((a, b) => b.score - a.score);
-      leaderboard = local.slice(0, 10); saveLocal(leaderboard);
-    }
-    const myRank = leaderboard.findIndex((e) => e.name === entry.name && Number(e.score) === entry.score);
-    renderRows(myRank, online
-      ? (myRank >= 0 ? `🎉 ${myRank + 1}위에 등록되었습니다!` : "TOP 10에는 못 들었어요. 다시 도전!")
-      : "⚠ 서버 연결 실패 — 이 기기에만 임시 저장됨");
+    showView("rank");
+    if (!cachedBoard) loadingRows();
+    const base = await ensureBoard();
+    // 낙관적 업데이트: 서버 저장을 기다리지 않고 즉시 순위 표시 → 빠른 체감
+    leaderboard = base.concat([entry]).sort((a, b) => b.score - a.score).slice(0, 10);
+    const myRank = leaderboard.indexOf(entry);
+    renderRows(myRank, myRank >= 0 ? `🎉 ${myRank + 1}위에 등록되었습니다!` : "TOP 10에는 못 들었어요. 다시 도전!");
     submitting = false;
+    // 실제 저장은 백그라운드 (실패 시에만 안내 + 로컬 백업)
+    sbInsert(entry).catch(() => {
+      const local = loadLocal(); local.push(entry); local.sort((a, b) => b.score - a.score); saveLocal(local.slice(0, 10));
+      goMsg.textContent = "⚠ 서버 저장 실패 — 이 기기에만 임시 저장됨";
+    });
   }
   async function skipRegister() {
-    showView("rank"); loadingRows();
-    let online = true;
-    try { leaderboard = await sbTop10(); } catch (e) { online = false; leaderboard = loadLocal(); }
-    renderRows(-1, online ? "등록 없이 랭킹만 표시합니다" : "⚠ 서버 연결 실패 — 로컬 기록 표시");
+    showView("rank");
+    if (!cachedBoard) loadingRows();
+    leaderboard = await ensureBoard();
+    renderRows(-1, "등록 없이 랭킹만 표시합니다");
   }
   function restartGame() { goBox.classList.remove("show"); goVisible = false; state = STATE.PLAY; resetGame(); }
   function toMenu() { goBox.classList.remove("show"); goVisible = false; state = STATE.MENU; }
