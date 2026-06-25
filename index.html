@@ -218,7 +218,7 @@
         <div id="goChoiceView">
           <div class="go-row">
             <button id="goAgain">🔁 다시 시작</button>
-            <button id="goEnd" class="ghost">🏁 끝내기</button>
+            <button id="goEnd" class="ghost">📝 기록남기기</button>
           </div>
         </div>
         <div id="goNameView" style="display:none;">
@@ -370,7 +370,7 @@
     stage = n;
     stageTarget = 3600 + n * 700;   // 거리 단축 (난이도 완화)
     worldOffset = 0;
-    baseSpeed = 4.2 + n * 0.5;       // 기본 속도 아주 조금 느리게
+    baseSpeed = 4.5 + n * 0.5;       // 기본 속도 아주 약간 ↑
     buildTerrain();
     obstacles = [];
     nextSpawnX = 760;
