@@ -693,6 +693,7 @@
 
   function playerBox() {
     if (player.ducking && player.onGround) return { x: PLAYER_X - 6, y: player.footY - 22, w: 54, h: 22 };
+    if ((CHARACTERS[selected].legs || 2) >= 4) return { x: PLAYER_X, y: player.footY - 36, w: 46, h: 36 }; // 가로 몸통
     return { x: PLAYER_X + 4, y: player.footY - 44, w: 30, h: 44 };
   }
   function hitTest(o, sx) {
@@ -777,62 +778,78 @@
     }
 
     const legCount = ch.legs || 2;
-    const legLen = 13, bodyH = 17, bodyW = 24;
-    const hipY0 = foot - legLen, bodyTop = hipY0 - bodyH;
     const running = player.onGround;
     const t = frame * 0.45;
-    const bob = running ? Math.abs(Math.sin(t)) * 1.5 : 0; // 살짝 위아래
-    const hy = hipY0 - bob;                                 // 현재 엉덩이 높이
 
-    ctx.lineCap = "round";
-    // 2본 관절 다리 (허벅지 L1 + 정강이 L2, 무릎 IK)
-    function jointLeg(hx, footX, footY, bend, L1, L2) {
-      let dx = footX - hx, dy = footY - hy;
+    // 2본 관절 다리 (허벅지 + 정강이, 무릎 IK)
+    function jointLeg(hx, hy, fx, fy, bend, L1, L2) {
+      let dx = fx - hx, dy = fy - hy;
       let d = Math.hypot(dx, dy);
       d = Math.max(Math.abs(L1 - L2) + 0.5, Math.min(L1 + L2 - 0.5, d));
       const a = Math.atan2(dy, dx);
       const cosH = (L1 * L1 + d * d - L2 * L2) / (2 * L1 * d);
       const kAng = a + bend * Math.acos(Math.max(-1, Math.min(1, cosH)));
-      const kx = hx + Math.cos(kAng) * L1, ky = hy + Math.sin(kAng) * L1;  // 무릎
-      const ex = hx + Math.cos(a) * d, ey = hy + Math.sin(a) * d;          // 발(도달점)
-      ctx.strokeStyle = dark;
-      ctx.lineWidth = 5; ctx.beginPath(); ctx.moveTo(hx, hy); ctx.lineTo(kx, ky); ctx.stroke();  // 허벅지
-      ctx.lineWidth = 4; ctx.beginPath(); ctx.moveTo(kx, ky); ctx.lineTo(ex, ey); ctx.stroke();  // 정강이
-      ctx.lineWidth = 5; ctx.beginPath(); ctx.moveTo(ex, ey); ctx.lineTo(ex + (bend > 0 ? -3 : 3), ey); ctx.stroke(); // 발
-    }
-    // 걷기 궤적: 앞뒤로 흔들고, 들어올릴 땐 발이 떠오름
-    function gaitFoot(hx, phase) {
-      const cyc = t + phase, stride = running ? 5 : 1, lift = running ? 7 : 0;
-      return [hx + Math.cos(cyc) * stride, foot - Math.max(0, Math.sin(cyc)) * lift];
+      const kx = hx + Math.cos(kAng) * L1, ky = hy + Math.sin(kAng) * L1;
+      const ex = hx + Math.cos(a) * d, ey = hy + Math.sin(a) * d;
+      ctx.strokeStyle = dark; ctx.lineCap = "round";
+      ctx.lineWidth = 5; ctx.beginPath(); ctx.moveTo(hx, hy); ctx.lineTo(kx, ky); ctx.stroke();   // 허벅지
+      ctx.lineWidth = 4; ctx.beginPath(); ctx.moveTo(kx, ky); ctx.lineTo(ex, ey); ctx.stroke();   // 정강이
+      ctx.lineWidth = 5; ctx.beginPath(); ctx.moveTo(ex, ey); ctx.lineTo(ex + 3, ey); ctx.stroke(); // 발
     }
 
     if (legCount >= 4) {
-      // 뒷다리(무릎 앞으로) 2 + 앞다리(무릎 뒤로) 2 → 동물 갤럽
-      const defs = [
-        { x: cx - 9, ph: 0.0, bend: -1 }, { x: cx - 5, ph: 0.4, bend: -1 },
-        { x: cx + 5, ph: Math.PI, bend: 1 }, { x: cx + 9, ph: Math.PI + 0.4, bend: 1 },
-      ];
-      for (const lg of defs) { const f = gaitFoot(lg.x, lg.ph); jointLeg(lg.x, f[0], f[1], lg.bend, 8, 9); }
-    } else {
-      // 외계인: 2족, 무릎 앞으로 굽힘
-      const f1 = gaitFoot(cx - 4, 0), f2 = gaitFoot(cx + 4, Math.PI);
-      jointLeg(cx - 4, f1[0], f1[1], -1, 9, 9);
-      jointLeg(cx + 4, f2[0], f2[1], -1, 9, 9);
+      // ===== 네발동물: 가로 몸통 + 앞쪽 머리 + 뒤쪽 꼬리 (갤럽) =====
+      const bodyW = 46, bodyH = 22, legLen = 18;
+      const hipY = foot - legLen;
+      const bodyCenterY = hipY - bodyH / 2 + 2;
+      const bob = running ? Math.abs(Math.sin(t * 2)) * 2 : 0;
+      const frontX = cx + bodyW * 0.26, backX = cx - bodyW * 0.30;
+      const gait = (hx, ph) => {
+        const c = t + ph, stride = running ? 7 : 1, lift = running ? 11 : 0;
+        return [hx + Math.cos(c) * stride, foot - Math.max(0, Math.sin(c)) * lift];
+      };
+      // 원경(반대쪽) 다리 — 연하게
+      ctx.globalAlpha = 0.5;
+      let f = gait(backX - 2, Math.PI + 0.6); jointLeg(backX - 2, hipY - bob, f[0], f[1], -1, 9, 10);
+      f = gait(frontX - 2, 0.6);              jointLeg(frontX - 2, hipY - bob, f[0], f[1], 1, 9, 9);
+      ctx.globalAlpha = 1;
+      // 꼬리 (뒤쪽, 살랑)
+      const wag = Math.sin(t) * 6;
+      ctx.strokeStyle = dark; ctx.lineWidth = 6; ctx.lineCap = "round";
+      ctx.beginPath();
+      ctx.moveTo(cx - bodyW / 2 + 3, bodyCenterY - bob);
+      ctx.quadraticCurveTo(cx - bodyW / 2 - 13, bodyCenterY - 12 - bob + wag, cx - bodyW / 2 - 15, bodyCenterY - 26 - bob + wag);
+      ctx.stroke();
+      // 몸통 (가로 타원)
+      ctx.fillStyle = color; fillEllipse(cx, bodyCenterY - bob, bodyW / 2, bodyH / 2);
+      ctx.strokeStyle = dark; ctx.lineWidth = 2; ctx.stroke();
+      // 머리 (앞쪽)
+      drawHead(ch.emoji, cx + bodyW / 2 + 1, bodyCenterY - bob + 9, 30);
+      // 근경(이쪽) 다리 — 진하게
+      f = gait(backX + 2, Math.PI); jointLeg(backX + 2, hipY - bob, f[0], f[1], -1, 9, 10);
+      f = gait(frontX + 2, 0);       jointLeg(frontX + 2, hipY - bob, f[0], f[1], 1, 9, 9);
+      return;
     }
 
-    // 몸통
+    // ===== 외계인: 직립 2족 + 긴 팔 =====
+    const legLen = 13, bodyH = 17, bodyW = 22;
+    const hipY0 = foot - legLen, bodyTop = hipY0 - bodyH;
+    const bob = running ? Math.abs(Math.sin(t)) * 1.5 : 0;
+    const hy = hipY0 - bob;
+    const gait2 = (hx, ph) => {
+      const c = t + ph, stride = running ? 5 : 1, lift = running ? 7 : 0;
+      return [hx + Math.cos(c) * stride, foot - Math.max(0, Math.sin(c)) * lift];
+    };
+    let g1 = gait2(cx - 4, 0), g2 = gait2(cx + 4, Math.PI);
+    jointLeg(cx - 4, hy, g1[0], g1[1], -1, 9, 9);
+    jointLeg(cx + 4, hy, g2[0], g2[1], -1, 9, 9);
     ctx.fillStyle = color; roundRect(cx - bodyW / 2, bodyTop - bob, bodyW, bodyH, 8); ctx.fill();
     ctx.strokeStyle = dark; ctx.lineWidth = 2; ctx.stroke();
-
-    // 팔: 외계인(2족)만 — 길게, 좌우 흔들 (동물은 앞다리가 팔 역할)
-    if (legCount === 2) {
-      ctx.strokeStyle = dark; ctx.lineWidth = 4; ctx.lineCap = "round";
-      const armY = bodyTop - bob + 6, armLen = 16;
-      const aw = running ? Math.sin(t + Math.PI) * 7 : 3;
-      ctx.beginPath(); ctx.moveTo(cx + 2, armY); ctx.lineTo(cx + 2 + armLen + aw, armY + 11); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(cx - 2, armY); ctx.lineTo(cx - 2 - armLen + aw, armY + 11); ctx.stroke();
-    }
-    // 머리(이모지)
+    ctx.strokeStyle = dark; ctx.lineWidth = 4; ctx.lineCap = "round";
+    const armY = bodyTop - bob + 6, armLen = 16;
+    const aw = running ? Math.sin(t + Math.PI) * 7 : 3;
+    ctx.beginPath(); ctx.moveTo(cx + 2, armY); ctx.lineTo(cx + 2 + armLen + aw, armY + 11); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(cx - 2, armY); ctx.lineTo(cx - 2 - armLen + aw, armY + 11); ctx.stroke();
     drawHead(ch.emoji, cx, bodyTop - bob + 5, 24);
   }
   function drawHUD() {
